@@ -1,9 +1,9 @@
 import axios from "axios";
-import { getApiBaseUrl } from "../config/apiBase";
+import { API } from "../config/apiBase";
 
-/** Cliente HTTP: baseURL via VITE_API_URL ou /api (proxy na Vercel); JWT anexado no login. */
+/** Cliente HTTP: baseURL = import.meta.env.VITE_API_URL (via {@link API}); JWT no login. */
 const api = axios.create({
-  baseURL: getApiBaseUrl(),
+  baseURL: API,
   /** Render free tier: cold start pode passar de 30s. */
   timeout: 120_000
 });

@@ -1,38 +1,35 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import BrandLogo from "../components/BrandLogo";
-import RequiredFieldLabel from "../components/RequiredFieldLabel";
 import { useAuth } from "../context/AuthContext";
-import { getApiBaseUrl } from "../config/apiBase";
-
-const API_BASE = getApiBaseUrl();
+import { API } from "../config/apiBase";
 
 function isLocalApiUrl() {
-  return /localhost|127\.0\.0\.1/i.test(API_BASE);
+  return /localhost|127\.0\.0\.1/i.test(API);
 }
 
 /** API publica (HTTPS), nao o PC local. */
 function isRemoteHostedApi() {
-  return /^https:\/\//i.test(API_BASE) && !isLocalApiUrl();
+  return /^https:\/\//i.test(API) && !isLocalApiUrl();
 }
 
 /** Build de producao com API em localhost — no site publico (ex.: Vercel) o navegador do visitante nao alcanca seu PC. */
 const PROD_API_MISCONFIGURED =
-  import.meta.env.PROD && /localhost|127\.0\.0\.1/i.test(API_BASE);
+  import.meta.env.PROD && /localhost|127\.0\.0\.1/i.test(API);
 
 function getRemoteApiNetworkHelp() {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const apiBase = API_BASE.replace(/\/$/, "");
+  const apiBase = API.replace(/\/$/, "");
   const host = apiBase.replace(/\/api\/?$/i, "");
   const healthApi = `${apiBase}/health`;
   const healthRoot = `${host}/health`;
   return [
-    `Nao foi possivel conectar a API em ${API_BASE}.`,
+    `Nao foi possivel conectar a API em ${API}.`,
     "",
     "O painel esta aberto no seu navegador, mas a chamada a API nao chegou ao servidor (ou demorou demais).",
     "",
-    "1) Render (plano gratuito): o servico dorme. O primeiro acesso pode levar 1-2 minutos. Clique em Entrar de novo apos esperar.",
-    `2) Teste no navegador (nova aba): ${healthApi} ou ${healthRoot} — deve aparecer JSON com "status":"ok". Se nao abrir, o problema e no deploy/host, nao no login.`,
+    "1) Render (plano gratuito): o servico dorme. O primeiro acesso pode levar 1-2 minutos. Tente de novo apos esperar.",
+    `2) Teste no navegador (nova aba): ${healthApi} ou ${healthRoot} — deve aparecer JSON com "status":"ok". Se nao abrir, o problema e no deploy/host.`,
     "3) CORS: no backend na Render, defina FRONTEND_URL com a origem deste site, por exemplo:",
     `   ${origin || "http://localhost:5173"}`,
     "   Se usar mais de um link (localhost + Vercel + IP na rede), separe por virgula, sem espacos.",
@@ -66,7 +63,7 @@ function getNetworkErrorMessage() {
           ].join("\n")
         : "";
 
-    const apiBase = API_BASE.replace(/\/$/, "");
+    const apiBase = API.replace(/\/$/, "");
     const hostNoApi = apiBase.replace(/\/api\/?$/i, "");
     const healthApi = `${apiBase}/health`;
     const healthRoot = `${hostNoApi}/health`;
@@ -74,7 +71,7 @@ function getNetworkErrorMessage() {
       typeof window !== "undefined" ? window.location.origin : "http://localhost:5173";
 
     return [
-      `Nao foi possivel conectar a API em ${API_BASE}.`,
+      `Nao foi possivel conectar a API em ${API}.`,
       "",
       "1) Teste a API (nova aba): " + healthApi + " ou " + healthRoot + " — se aparecer JSON com \"status\":\"ok\", o backend esta rodando.",
       "2) Backend parado: na raiz do projeto rode npm run dev:backend (ou: cd backend e npm run dev). Porta padrao 3333.",
@@ -90,7 +87,7 @@ function getNetworkErrorMessage() {
   }
 
   const lines = [
-    `Nao foi possivel conectar a API (${API_BASE}).`,
+    `Nao foi possivel conectar a API (${API}).`,
     "",
     "Site publicado (ex.: Vercel): defina VERCEL_BACKEND_URL (URL do backend sem /api) no Edge ou VITE_API_URL=https://.../api no build. Redeploy apos mudar env. Com VITE absoluto, na API use FRONTEND_URL = origem exata deste site.",
     "No servidor da API: defina FRONTEND_URL com a URL exata do site (sem barra no final) para o CORS liberar o navegador."
@@ -122,30 +119,30 @@ function getApiErrorMessage(err) {
   }
   const status = err.response?.status;
   if (status === 401) {
-    return "E-mail ou senha invalidos. Confira maiusculas, espacos no e-mail, ou peca ao administrador para conferir o cadastro.";
+    return "Nao foi possivel entrar automaticamente. Rode o seed no backend (npm run seed) ou confira usuario admin no banco.";
   }
   if (status === 403) {
     return "Acesso negado. Se a API esta na Render, confira FRONTEND_URL com a URL exata deste site (CORS).";
   }
   if (status === 404) {
-    return "Rota de login nao encontrada. Verifique VITE_API_URL (deve terminar em /api, sem barra duplicada).";
+    return "Rota de autenticacao nao encontrada. Verifique VITE_API_URL (deve terminar em /api, sem barra duplicada).";
   }
   if (status === 400) {
-    return "Dados invalidos enviados ao servidor. Confira e-mail e senha.";
+    return "Dados invalidos enviados ao servidor.";
   }
   if (status === 500) {
-    return "Erro no servidor ao entrar. Veja os Logs no Render (Firebase, JWT_SECRET, etc.).";
+    return "Erro no servidor. Veja os Logs no Render (Firebase, JWT_SECRET, etc.).";
   }
   if (status === 502 || status === 503 || status === 504) {
     return "API indisponivel ou reiniciando (HTTP " + status + "). No Render gratuito espere ~1-2 min e tente de novo.";
   }
   if (status) {
-    return `O servidor respondeu com erro HTTP ${status}. Abra os Logs da API ou teste ${API_BASE.replace(/\/$/, "")}/health no navegador.`;
+    return `O servidor respondeu com erro HTTP ${status}. Abra os Logs da API ou teste ${API.replace(/\/$/, "")}/health no navegador.`;
   }
   return "";
 }
 
-function getLoginFallbackMessage(err) {
+function getEnterFallbackMessage(err) {
   const parts = [];
   const status = err.response?.status;
   const code = err.code ? ` (${String(err.code)})` : "";
@@ -156,28 +153,24 @@ function getLoginFallbackMessage(err) {
     "Nao foi possivel entrar." +
     tail +
     "\n\nSe o site e a Vercel: VERCEL_BACKEND_URL (Edge) ou VITE_API_URL no build; com chamadas diretas confira FRONTEND_URL na API. Teste: " +
-    API_BASE.replace(/\/$/, "") +
+    API.replace(/\/$/, "") +
     "/health"
   );
 }
 
 export default function Login() {
-  const { isAuthenticated, login } = useAuth();
-  const [form, setForm] = useState({ email: "admin@maricotakids.com", password: "admin123" });
+  const { isAuthenticated, enterWithDefaultCredentials } = useAuth();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const loadingRef = useRef(false);
 
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
+  const proceed = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setError("");
     setLoading(true);
-
     try {
-      await login(form.email.trim(), form.password);
+      await enterWithDefaultCredentials();
     } catch (err) {
       const apiMsg = getApiErrorMessage(err);
       if (apiMsg) {
@@ -189,23 +182,41 @@ export default function Login() {
           "Sem resposta da API (rede, CORS ou servidor offline).\n\n" + getNetworkErrorMessage()
         );
       } else {
-        setError(getLoginFallbackMessage(err));
+        setError(getEnterFallbackMessage(err));
       }
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
+  }, [enterWithDefaultCredentials]);
+
+  useEffect(() => {
+    function onKeyDown(event) {
+      if (event.key !== "Enter") return;
+      const tag = (event.target && event.target.tagName) || "";
+      if (tag === "TEXTAREA") return;
+      event.preventDefault();
+      void proceed();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [proceed]);
+
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
   }
 
   return (
     <main className="grid min-h-screen place-items-center p-4">
-      <form className="card w-full max-w-md" onSubmit={handleSubmit}>
+      <div className="card w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="mb-6 flex justify-center rounded-2xl bg-white/80 p-4 ring-1 ring-pink-100">
             <BrandLogo />
           </div>
-          <h1 className="text-2xl font-black text-maricota-text">Entrar no sistema</h1>
+          <h1 className="text-2xl font-black text-maricota-text">Bem-vindo</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Controle de estoque, vendas e financeiro. Use o e-mail e senha fornecidos pelo administrador da loja.
+            Pressione <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">Enter</kbd> ou use o
+            botao abaixo para abrir o painel.
           </p>
         </div>
 
@@ -243,36 +254,10 @@ export default function Login() {
           <div className="mb-4 whitespace-pre-line rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
         )}
 
-        <label className="mb-4 block">
-          <RequiredFieldLabel tip="E-mail cadastrado no sistema (o mesmo que o administrador criou para voce). Ex.: nome@loja.com.">
-            E-mail
-          </RequiredFieldLabel>
-          <input
-            className="input"
-            required
-            type="email"
-            value={form.email}
-            onChange={(event) => setForm({ ...form, email: event.target.value })}
-          />
-        </label>
-
-        <label className="mb-6 block">
-          <RequiredFieldLabel tip="Senha secreta da sua conta. Nao compartilhe. Se esquecer, peca ao administrador para redefinir.">
-            Senha
-          </RequiredFieldLabel>
-          <input
-            className="input"
-            required
-            type="password"
-            value={form.password}
-            onChange={(event) => setForm({ ...form, password: event.target.value })}
-          />
-        </label>
-
-        <button className="btn-primary w-full" disabled={loading} type="submit">
-          {loading ? "Entrando..." : "Entrar"}
+        <button className="btn-primary w-full" disabled={loading} type="button" onClick={() => void proceed()}>
+          {loading ? "Abrindo..." : "Entrar"}
         </button>
-      </form>
+      </div>
     </main>
   );
 }
