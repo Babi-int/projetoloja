@@ -1,35 +1,47 @@
-import { useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Navigate } from "react-router-dom";
 import BrandLogo from "../components/BrandLogo";
 import { useAuth } from "../context/AuthContext";
-import { API } from "../config/apiBase";
-
-/** Build de producao com API em localhost — no site publico (ex.: Vercel) o navegador do visitante nao alcanca seu PC. */
-const PROD_API_MISCONFIGURED =
-  import.meta.env.PROD && /localhost|127\.0\.0\.1/i.test(API);
 
 export default function Login() {
-  const { isAuthenticated, enterWithoutPassword } = useAuth();
+  const { isAuthenticated, login } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const proceed = useCallback(() => {
-    enterWithoutPassword();
-  }, [enterWithoutPassword]);
+  const handleSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      if (!email || !password) {
+        setError("Preencha o e-mail e a senha.");
+        return;
+      }
+      setLoading(true);
+      setError("");
+      try {
+        await login(email, password);
+      } catch (err) {
+        const isNetwork =
+          !err.response &&
+          (err.code === "ERR_NETWORK" || err.message === "Network Error");
+        const isTimeout = err.code === "ECONNABORTED";
+        const apiMsg = err.response?.data?.message;
+        if (isNetwork || isTimeout) {
+          setError(
+            "Não foi possível conectar ao servidor. O sistema pode estar sendo iniciado — aguarde 30 segundos e tente novamente."
+          );
+        } else {
+          setError(apiMsg || "E-mail ou senha incorretos.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [email, password, login]
+  );
 
-  useEffect(() => {
-    function onKeyDown(event) {
-      if (event.key !== "Enter") return;
-      const tag = (event.target && event.target.tagName) || "";
-      if (tag === "TEXTAREA") return;
-      event.preventDefault();
-      proceed();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [proceed]);
-
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
+  if (isAuthenticated) return <Navigate to="/" replace />;
 
   return (
     <main className="grid min-h-screen place-items-center p-4">
@@ -39,46 +51,53 @@ export default function Login() {
             <BrandLogo />
           </div>
           <h1 className="text-2xl font-black text-maricota-text">Bem-vindo</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Pressione <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">Enter</kbd> ou use o
-            botao abaixo. A API deve estar com <code className="text-xs">AUTH_DISABLED=true</code> (sem verificacao de
-            senha no servidor).
-          </p>
+          <p className="mt-1 text-sm text-slate-500">Faça login para continuar</p>
         </div>
 
-        {PROD_API_MISCONFIGURED && (
-          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-            <p className="font-bold">O site online nao esta apontando para a API publica.</p>
-            <p className="mt-2 text-amber-900/95">
-              Na <strong>Vercel</strong> (Project → Settings → Environment Variables), use <strong>uma</strong> das
-              opcoes e depois faca um <strong>novo deploy</strong> (variaveis de build precisam de rebuild):
-            </p>
-            <ul className="mt-2 list-inside list-disc space-y-1 text-amber-900/95">
-              <li>
-                <code className="rounded bg-white/80 px-1">VERCEL_BACKEND_URL</code> = URL do backend{" "}
-                <strong>sem</strong> <code className="rounded bg-white/80 px-1">/api</code>, ex.{" "}
-                <code className="rounded bg-white/80 px-1">https://seu-app.onrender.com</code> — disponivel no{" "}
-                <strong>Edge Middleware</strong>; o site encaminha <code className="rounded bg-white/80 px-1">/api</code>{" "}
-                para a API (nao precisa de <code className="rounded bg-white/80 px-1">VITE_API_URL</code> nem CORS para
-                esse caminho).
-              </li>
-              <li>
-                Ou <code className="rounded bg-white/80 px-1">VITE_API_URL</code> ={" "}
-                <code className="rounded bg-white/80 px-1">https://seu-app.onrender.com/api</code> — chamadas diretas;
-                ao servidor da API defina <code className="rounded bg-white/80 px-1">FRONTEND_URL</code> como esta
-                origem (sem barra no final), ex.{" "}
-                <code className="rounded bg-white/80 px-1">
-                  {typeof window !== "undefined" ? window.location.origin : "https://seu-projeto.vercel.app"}
-                </code>
-                .
-              </li>
-            </ul>
+        {error && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {error}
           </div>
         )}
 
-        <button className="btn-primary w-full" type="button" onClick={proceed}>
-          Entrar
-        </button>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              E-mail
+            </label>
+            <input
+              type="email"
+              autoComplete="email"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@maricotakids.com"
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-maricota-pink focus:ring-2 focus:ring-maricota-pink/20"
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Senha
+            </label>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-maricota-pink focus:ring-2 focus:ring-maricota-pink/20"
+              disabled={loading}
+            />
+          </div>
+          <button
+            type="submit"
+            className="btn-primary w-full"
+            disabled={loading}
+          >
+            {loading ? "Entrando…" : "Entrar"}
+          </button>
+        </form>
       </div>
     </main>
   );

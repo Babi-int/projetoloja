@@ -48,13 +48,14 @@ export default function Dashboard() {
     } catch (err) {
       setSummary(null);
       const apiMsg = err.response?.data?.message;
-      const offline =
+      const isOffline =
         !err.response && (err.code === "ERR_NETWORK" || err.message === "Network Error");
+      const isTimeout = err.code === "ECONNABORTED";
       setError(
         apiMsg ||
-          (offline
-            ? "Nao foi possivel conectar a API. Inicie o backend (porta 3333), por exemplo na raiz: npm run dev, ou npm run dev:backend. Confira tambem VITE_API_URL no frontend."
-            : "Nao foi possivel carregar o dashboard.")
+          (isOffline || isTimeout
+            ? "Não foi possível conectar ao servidor. O sistema pode estar sendo iniciado — aguarde 30 segundos e tente novamente."
+            : "Não foi possível carregar o dashboard.")
       );
     } finally {
       setLoading(false);
