@@ -19,7 +19,6 @@
     "express": "latest",
     "firebase-admin": "latest",
     "jsonwebtoken": "latest",
-    "maricota-kids": "file:..",
     "morgan": "latest",
     "zod": "latest"
   },
