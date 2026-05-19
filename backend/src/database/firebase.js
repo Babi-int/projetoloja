@@ -20,16 +20,24 @@ function getCredential() {
   return admin.credential.applicationDefault();
 }
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: getCredential(),
-    projectId: process.env.FIREBASE_PROJECT_ID
-  });
-}
+let db = null;
+let initError = null;
 
-const db = admin.firestore();
+try {
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: getCredential(),
+      projectId: process.env.FIREBASE_PROJECT_ID
+    });
+  }
+  db = admin.firestore();
+} catch (err) {
+  initError = err.message;
+  console.error("[Firebase] Falha ao inicializar:", initError);
+}
 
 module.exports = {
   admin,
-  db
+  db,
+  get initError() { return initError; }
 };

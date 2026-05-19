@@ -33,8 +33,10 @@ app.use(
 app.use(express.json());
 app.use(morgan("dev"));
 
-/** Health na raiz: alguns paineis (Render) configuram path /health sem /api. */
+/** Health na raiz: expõe erros de inicialização para diagnóstico remoto. */
 app.get("/health", (req, res) => {
+  const { initError } = require("./database/firebase");
+  if (initError) return res.status(500).json({ status: "error", firebase: initError });
   res.json({ status: "ok", app: "Maricota Kids API" });
 });
 
