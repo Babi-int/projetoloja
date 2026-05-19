@@ -1,5 +1,8 @@
 # Blueprint de referencia para Render (https://render.com/docs/blueprint-spec)
 # "New Blueprint" no Render apontando para este repositorio, ou crie Web Service manualmente com os mesmos campos.
+#
+# IMPORTANTE: as variaveis marcadas com sync: false precisam ser preenchidas manualmente
+# no painel do Render em Environment > Environment Variables apos o primeiro deploy.
 
 services:
   - type: web
@@ -8,6 +11,41 @@ services:
     region: oregon
     plan: free
     rootDir: backend
-    buildCommand: npm install
+    buildCommand: npm install --omit=dev
     startCommand: npm start
     healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      - key: PORT
+        value: "10000"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: JWT_EXPIRES_IN
+        value: "1d"
+
+      # Preencha os valores abaixo no painel do Render (nao versione segredos):
+      - key: JWT_SECRET
+        sync: false
+        # Gere um segredo forte: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+        # Ex.: meu-projeto-12345
+
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+        # Ex.: firebase-adminsdk-xxxxx@meu-projeto-12345.iam.gserviceaccount.com
+
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+        # Cole a chave EXATAMENTE como esta no JSON baixado do Firebase Console,
+        # incluindo os \n literais. O backend ja faz o replace(\n) automaticamente.
+
+      - key: FRONTEND_URL
+        sync: false
+        # URL exata do seu site na Vercel SEM barra no final.
+        # Ex.: https://meu-erp.vercel.app
+        # Para multiplas origens, separe por virgula: https://a.vercel.app,https://b.vercel.app

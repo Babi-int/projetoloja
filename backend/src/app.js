@@ -11,8 +11,25 @@ const errorMiddleware = require("./middlewares/errorMiddleware");
 
 const app = express();
 
-/** CORS: no Render (ou .env local) defina FRONTEND_URL = origem exata do front, sem barra no final. */
-app.use(cors({ origin: process.env.FRONTEND_URL }));
+/**
+ * CORS: FRONTEND_URL pode conter múltiplas origens separadas por vírgula.
+ * Ex.: http://localhost:5173,https://meu-site.vercel.app
+ * Em produção defina no painel do Render (Environment > FRONTEND_URL).
+ */
+const allowedOrigins = (process.env.FRONTEND_URL || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS: origem não permitida — ${origin}`));
+    },
+    credentials: true
+  })
+);
 app.use(express.json());
 app.use(morgan("dev"));
 

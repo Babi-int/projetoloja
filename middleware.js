@@ -33,16 +33,15 @@ export default async function middleware(request) {
   const headers = new Headers(request.headers);
   headers.delete("host");
 
+  const hasBody = !["GET", "HEAD"].includes(request.method);
+
   /** @type {RequestInit} */
   const init = {
     method: request.method,
     headers,
-    redirect: "follow"
+    redirect: "follow",
+    ...(hasBody && { body: request.body, duplex: "half" })
   };
-
-  if (!["GET", "HEAD"].includes(request.method)) {
-    init.body = request.body;
-  }
 
   try {
     const upstream = await fetch(targetUrl, init);
