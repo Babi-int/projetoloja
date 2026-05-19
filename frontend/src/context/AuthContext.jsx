@@ -1,9 +1,13 @@
 import { createContext, useContext, useMemo, useState } from "react";
 import api from "../api/client";
 
-/** Mesmo usuario criado por `npm run seed` no backend — necessario para obter JWT nas requisicoes. */
-const DEFAULT_LOGIN_EMAIL = "admin@maricotakids.com";
-const DEFAULT_LOGIN_PASSWORD = "admin123";
+/** Sessao local quando nao ha login por API (modo sem senha no backend com AUTH_DISABLED). */
+const GUEST_ADMIN = {
+  id: "bypass",
+  name: "Administrador",
+  email: "admin@maricotakids.com",
+  role: "ADMIN"
+};
 
 /** Estado de sessão: token + user no localStorage; rotas privadas leem isAuthenticated. */
 const AuthContext = createContext(null);
@@ -21,9 +25,11 @@ export function AuthProvider({ children }) {
     setUser(data.user);
   }
 
-  /** Entrada rapida (tela de login): usa conta admin padrao; exige backend com seed ou mesmo usuario. */
-  async function enterWithDefaultCredentials() {
-    await login(DEFAULT_LOGIN_EMAIL, DEFAULT_LOGIN_PASSWORD);
+  /** Entrada sem senha: apenas estado local; a API precisa de AUTH_DISABLED=true no backend. */
+  function enterWithoutPassword() {
+    localStorage.removeItem("@maricota:token");
+    localStorage.setItem("@maricota:user", JSON.stringify(GUEST_ADMIN));
+    setUser(GUEST_ADMIN);
   }
 
   function logout() {
@@ -36,7 +42,7 @@ export function AuthProvider({ children }) {
     () => ({
       isAuthenticated: Boolean(user),
       login,
-      enterWithDefaultCredentials,
+      enterWithoutPassword,
       logout,
       user
     }),

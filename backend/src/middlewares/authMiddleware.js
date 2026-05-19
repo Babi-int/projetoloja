@@ -1,7 +1,21 @@
 /** Autenticação JWT: espera header Authorization: Bearer <token> emitido no login. */
 const jwt = require("jsonwebtoken");
 
+function getBypassUser() {
+  return {
+    id: process.env.BYPASS_USER_ID || "bypass",
+    name: process.env.BYPASS_USER_NAME || "Administrador",
+    email: process.env.BYPASS_USER_EMAIL || "admin@maricotakids.com",
+    role: "ADMIN"
+  };
+}
+
 function authMiddleware(req, res, next) {
+  if (process.env.AUTH_DISABLED === "true") {
+    req.user = getBypassUser();
+    return next();
+  }
+
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
