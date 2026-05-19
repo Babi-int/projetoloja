@@ -33,11 +33,10 @@ app.use(
 app.use(express.json());
 app.use(morgan("dev"));
 
-/** Health na raiz: expõe erros de inicialização para diagnóstico remoto. */
+/** Health na raiz: sempre 200 para o Render aceitar o deploy. Erro do Firebase incluso no body. */
 app.get("/health", (req, res) => {
   const { initError } = require("./database/firebase");
-  if (initError) return res.status(500).json({ status: "error", firebase: initError });
-  res.json({ status: "ok", app: "Maricota Kids API" });
+  res.json({ status: initError ? "degraded" : "ok", app: "Maricota Kids API", firebaseError: initError || null });
 });
 
 app.get("/", (req, res) => {
